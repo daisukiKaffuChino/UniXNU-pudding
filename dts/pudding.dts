@@ -1,0 +1,68 @@
+/dts-v1/;
+/include/ "sm8850.dtsi"
+
+/ {
+    model = "Xiaomi 17";
+    compatible = "xiaomi,pudding", "qcom,sm8850";
+
+    // pandora (17 Pro) measured candidate A; pudding RAM size unverified.
+    // Low window start 0x80000000 is NOT free (hyp 0xe00000, PIL, TZ chain).
+    // Live pudding (2026-10-27): MemTotal 15,447,504 kB => 16 GB SKU.
+    memory@0 {
+        device_type = "memory";
+        reg = <0x8c 0x00000000 0x1 0x40000000>;
+    };
+
+    // cont_splash_region: verified from p11u-family dtbo (fragment@179) and
+    // pandora live capture; three-way agreement. bootimg.dtb_node references this.
+    // Live pudding: panel is 1220x2656 (wm size + SurfaceFlinger physicalFrame).
+    reserved-memory {
+        #address-cells = <2>;
+        #size-cells = <2>;
+
+        splash_region: splash@fc800000 {
+            label = "cont_splash_region";
+            reg = <0x0 0xfc800000 0x0 0x2b00000>;
+            no-map;
+        };
+    };
+};
+
+// All 8 Oryon cores (pandora live-verified 8/8 PSCI wake; pudding DTB same topology)
+&cpu0 { status = "okay"; };
+&cpu1 { status = "okay"; };
+&cpu2 { status = "okay"; };
+&cpu3 { status = "okay"; };
+&cpu4 { status = "okay"; };
+&cpu5 { status = "okay"; };
+&cpu6 { status = "okay"; };
+&cpu7 { status = "okay"; };
+
+// --- Stage S1-S6: storage + display handoff ---
+&ufs { status = "okay"; };
+&ufsphy { status = "okay"; };
+
+// UFS runs through apps_smmu stream 0x60 (CB0 bypass, pre-set by ABL).
+// gpu_smmu and apps_smmu nodes stay for reference; enable at GPU/input stages.
+
+// --- Stage S7 additions (uncomment as components land) ---
+// GPU: Adreno840v2 chipid 0x44050a01, UBWC mode 6, fw gen80200_*.bin
+// &gpu { status = "okay"; };
+// &gmu { status = "okay"; };
+// &gpu_smmu { status = "okay"; };
+// &apps_smmu { status = "okay"; };
+
+// Touch: LIVE pudding capture (2026-10-27) = Synaptics TCM on QUP4 SE0 SPI @ 0x1a80000
+//   node /soc/qcom,qupv3_4_geni_se@1ac0000/spi@1a80000/synaptics_tcm@0
+//   IRQ msmgpio 158, 10 fingers, coords 0..121999 x 0..265599 (1/100 px)
+//   rails: soc:touch_avdd_vreg + rpmh l4i-e0
+//   The FocalTech/Novatek variants seen in the TWRP tree do NOT apply to this unit.
+// &qup4_spi0 { status = "okay"; };
+
+// Keys: vol+ TLMM GPIO 101 (real TLMM base 0x0f100000, NOT vendor DT 0x0f000000);
+// power + vol- on PMK8850 PON via SPMI (live: spmi-0 / c426000.spmi, SID0, pon_hlos@1300;
+//   events pmic_pwrkey / pmic_resin). PON APID still to be confirmed at runtime.
+// &tlmm { status = "okay"; };
+
+// Panel (reference only, no driver yet): qcom,mdss_dsi_p3_42_02_0a_mp_dsc_vhm,
+//   1220x2656 @ 60/90/120 Hz, DSC command mode, ESD GPIO 97, MDSS IRQ SPI 115.

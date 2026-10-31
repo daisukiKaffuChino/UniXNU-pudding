@@ -1,0 +1,140 @@
+schema_version = 2
+
+[board]
+name = "pudding"
+soc = "SM8850"
+soc_source = "sm8850"
+os_profile = "ipados-17.7.11-21H461"
+# Live device 2026-10-27: ro.product.device=pudding, Android 17 (OS4.0.0.32.XPCCNXM),
+# bootloader unlocked, kernel 6.12.69-android16-4k, cpuid 0x0000046a348c0ce3.
+description = "Xiaomi 17 (pudding, qcom,canoe, SM8850)"
+kit = "pudding"
+
+[components]
+# Stage S1-S6: verified core path (all IDs registered in UniXNU components.toml)
+include = ["ArmDTPlatform", "ArmCpu", "SoftwareAES", "XnuPrelink", "DarwinBoot", "VerifiedRoot", "GopFramebuffer", "AppleKeyStoreState"]
+# Stage S7 additions (register new component IDs in upstream components.toml first):
+# "PuddingUfs", "PuddingKeyInputDxe", "PuddingHidInput", "FocalTouch", "QcomGeniSpi",
+# "Adreno840", "AdrenoMetal", "AdrenoPM4", "AdrenoFirmware", "ArmSmmu4K", "AirNir", "Sm8850Platform"
+
+[kernel]
+defconfig = "pudding_defconfig"
+config_fragments = ["arch:configs/common.config", "soc:configs/sm8850.config", "os:configs/ipados.config"]
+patch_series = ["arch:patches/xnu/series", "soc:patches/xnu/series", "os:patches/xnu/series", "device:patches/xnu/series"]
+# archive_plan: every selected component with build_stage=kernel must appear.
+# Stage S1-S6 components only (ArmDTPlatform/ArmCpu/SoftwareAES/AppleKeyStoreState);
+# VerifiedRoot is build_stage=payload, XnuPrelink is a tool, DarwinBoot/GopFramebuffer are firmware.
+# XNU_SOURCE_MOCKFS=y comes from the os profile (ipados.config) -> build-mockfs-fixture.py is required
+# for the mockfs_mountroot/mockfs_vfsops/mockfs_vnodeop_opv_desc link symbols.
+archives = [
+  "build-corecrypto-14.py",
+  "build-corecrypto-14.py --namespace",
+  "component:ArmDTPlatform",
+  "component:ArmCpu",
+  "component:SoftwareAES",
+  "build-software-aes-bindings.py",
+  "build-mockfs-fixture.py",
+  "build-libpthread-kernel.py",
+  "component:AppleKeyStoreState",
+]
+
+[device_tree]
+source = "device:dts/pudding.dts"
+include_dirs = ["soc:dts"]
+
+[firmware]
+config = "pudding"
+dsc = "Platforms/Xiaomi/puddingPkg/pudding.dsc"
+fd = "Build/puddingPkg/{target}_CLANGPDB/FV/SILICIUM_UEFI.fd"
+preflight = ["scripts/check-pudding.py"]
+submodules = ["Common/Mu", "Common/Mu_OEM_Sample", "Silicium-ACPI", "Silicon/Silicium/OpensslPkg/Library/OpensslLib/openssl"]
+packages = ["{uefi}", "{uefi}/Platforms/Xiaomi", "{tree}/package", "{tree}/drivers/DarwinBoot", "{edk2}", "{uefi}/Common/Mu", "{uefi}/Common/Mu_OEM_Sample", "{uefi}/Silicon/Qualcomm", "{uefi}/Silicon/Silicium", "{uefi}/Silicium-ACPI", "{uefi}/Silicium-ACPI/Platforms/Xiaomi", "{uefi}/Silicium-ACPI/Silicon/Qualcomm"]
+
+[firmware.defines]
+ENABLE_SECUREBOOT = "1"
+DEVICE_MODEL = "pudding"
+MEMORY_PROTECTION = "TRUE"
+SHIP_MODE = "FALSE"
+BUILDID_STRING = "pudding-research"
+
+[userdata]
+# MEASURED on the live device (KernelSU root, 2026-10-27):
+#   GPT (LBA unit = 4096 B): userdata first=3,535,360 last=128,627,706
+#   = 125,092,347 blocks = 512,378,253,312 B (477.2 GiB)
+#   cross-checked with /sys/class/block/sda34/{start,size} in 512 B sectors
+#   (28,282,880 / 1,000,738,776) and with the vendor DT /memory/superinfo:
+#   super_start_lba=0x3f200 (258,560), super_end_lba=0x35f1ff (3,535,359).
+#   GPT header: 512 b/sector image, 64 entries, backup table at LBA 128,627,711.
+#   Partition indices move between boots (sda/sdb LUN swap), so always match by
+#   GPT label, never by sdX index.
+first_lba = 3535360
+last_lba = 128627706
+lba_bytes = 4096
+windows = [{ name = "OS", component = "OS" }, { name = "SystemOS", component = "Cryptex1,SystemOS" }]
+
+[payload]
+volume = "PUDDINGESP"
+size_mib = 64
+# 2026-10-28: 208 MiB does not fit anywhere usable. The UEFI side has no block
+# device of its own (ABL drops the boot-image ramdisk, see device-dump/logfs.bin),
+# so the payload volume is flashed into the *inactive* boot slot (boot_b, 96 MiB,
+# Android still boots from slot a) and read back by puddingPkg/Drivers/PuddingUfsDxe.
+# 64 MiB = kernel.macho (48.7 MiB) + ADT + slack.
+loader = "firmware"
+title = "Boot"
+timeout = 60
+# Live device: 16 GB (MemTotal 15,447,504 kB). The 5 GiB window at 0x8C0000000 is the
+# pandora-proven candidate A; pudding DDR bank layout is not readable from the shell yet,
+# so keep this safe sub-window until the UEFI can dump the memory map.
+dram_size = "0x140000000"
+# native-ufs-root=1 deferred: needs sheng-pmgr=2 + platform-power kernel integration (AMFI No PMGR panic guard in payload.py).
+# Re-enable at device bring-up once UniXNU-sm8850-common platform-power component + kernel archive are wired in.
+# 2026-10-30: serial/debug silenced so only pudding fbcon marks reach the framebuffer
+# (kprintf console output floods the screen with a single glyph). Restore serial=3 when
+# the kernel log itself needs reading.
+kernel_args = ["-v", "kt_fixed_zones=120", "-apfs_shared_datavolume"]
+
+# [payload.install] needs a Data seed ramdisk (--data-ramdisk FILE, an external
+# input: the real iPad Data volume seed, not built here). Deferred until a seed
+# exists; the xnu/reset/shutdown menu entries remain available without it.
+# [payload.install]
+# title = "Install and boot"
+# confirm = "ERASE all iPadOS user data and install again?"
+# confirm_titles = ["Erase Data, skip Hello, boot", "Erase Data, show Hello, boot"]
+# confirm_args = ["pudding-data-reset=1", "pudding-data-reset=2"]
+
+[payload.adt]
+chip_id = "207"
+# Match dram_size; revisit after live memory detection
+# 4.75 GiB: DarwinBoot insets its window by (Kernel.Base & 2 MiB - 1), so a
+# window equal to the whole 5 GiB bank never fits that bank.
+owned_memory_size = "0x130000000"
+# Placeholder UUID (nil UUID): root volume matching is only meaningful after
+# the first real format; REQUIRED_AFTER_FIRST_FORMAT would crash uuid.UUID().
+root_match_volume_uuid = "00000000-0000-0000-0000-000000000000"
+packed_data_ramdisk = true
+persistent_data = true
+unique_chip_id = "required"
+
+[bootimg]
+# Xiaomi 17 boot header v4 (TWRP BoardConfig: BOARD_BOOT_HEADER_VERSION=4, pagesize 4096)
+dtb_node = [{ path = "/reserved-memory/splash_region", props = [{ name = "label", type = "s", value = "cont_splash_region" }, { name = "reg", type = "x", value = ["0x0", "0xfc800000", "0x0", "0x2b00000"] }] }]
+
+[adt.product.string]
+model = "xiaomi,pudding"
+artwork-display-gamut = "sRGB"
+
+[adt.defaults.u32]
+sleep-disabled = 1
+
+[adt.buttons.string]
+compatible = "buttons"
+device_type = "buttons"
+
+[adt.buttons.strings]
+# vol+ = TLMM GPIO 101 (verified in pudding DTB pinctrl + p11u dtbo gpio_keys);
+# power/vol- = PMK8850 PON (APID pending live verify, pandora value 465 assumed)
+button-names = ["hold", "voldown", "volup"]
+
+[adt.buttons.u32]
+home-button-type = 2

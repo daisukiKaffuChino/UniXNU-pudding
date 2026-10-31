@@ -1,0 +1,171 @@
+diff --git a/pexpert/arm/pe_serial.c b/pexpert/arm/pe_serial.c
+--- a/pexpert/arm/pe_serial.c
++++ b/pexpert/arm/pe_serial.c
+@@ -747,6 +747,140 @@
+ 	gPESF = fns;
+ }
+ 
++/*****************************************************************************/
++
++/*
++ * pudding: framebuffer console for a board with no usable UART. kprintf
++ * output is drawn onto the panel framebuffer the bootloader leaves scanning
++ * out (the reserved splash region). Geometry is the pudding panel: 1220x2656
++ * at stride 4880, 32 bpp. Lines wrap to the top instead of scrolling.
++ */
++
++extern unsigned char iso_font[256 * 16];
++
++#define PUDDING_FBCON_BASE   0xFC800000ULL
++#define PUDDING_FBCON_SIZE   0x02B00000ULL
++#define PUDDING_FBCON_WIDTH  1220u
++#define PUDDING_FBCON_HEIGHT 2656u
++#define PUDDING_FBCON_STRIDE 4880u
++#define PUDDING_FBCON_SCALE  1
++
++#define PUDDING_FBCON_FG     0xFFFFFFFFu
++#define PUDDING_FBCON_BG     0xFF000000u
++
++static volatile uint32_t *pudding_fbcon_base;
++static uint32_t pudding_fbcon_cols, pudding_fbcon_rows;
++static uint32_t pudding_fbcon_col, pudding_fbcon_row;
++
++static void
++pudding_fbcon_clear_row(uint32_t row)
++{
++	uint32_t first = row * 16 * PUDDING_FBCON_SCALE;
++	uint32_t last = first + 16 * PUDDING_FBCON_SCALE;
++
++	if (last > PUDDING_FBCON_HEIGHT) {
++		last = PUDDING_FBCON_HEIGHT;
++	}
++	for (uint32_t y = first; y < last; y++) {
++		volatile uint32_t *line = pudding_fbcon_base + y * (PUDDING_FBCON_STRIDE / 4);
++		for (uint32_t x = 0; x < PUDDING_FBCON_WIDTH; x++) {
++			line[x] = PUDDING_FBCON_BG;
++		}
++	}
++}
++
++static void
++pudding_fbcon_newline(void)
++{
++	pudding_fbcon_col = 0;
++	pudding_fbcon_row = (pudding_fbcon_row + 1) % pudding_fbcon_rows;
++	pudding_fbcon_clear_row(pudding_fbcon_row);
++	pudding_fbcon_clear_row((pudding_fbcon_row + 1) % pudding_fbcon_rows);
++}
++
++static void
++pudding_fbcon_init(void)
++{
++	if (pudding_fbcon_base == NULL) {
++		return;
++	}
++	pudding_fbcon_cols = PUDDING_FBCON_WIDTH / (8 * PUDDING_FBCON_SCALE);
++	pudding_fbcon_rows = PUDDING_FBCON_HEIGHT / (16 * PUDDING_FBCON_SCALE);
++	pudding_fbcon_col = pudding_fbcon_row = 0;
++	for (uint32_t r = 0; r < pudding_fbcon_rows; r++) {
++		pudding_fbcon_clear_row(r);
++	}
++}
++
++static unsigned int
++pudding_fbcon_transmit_ready(void)
++{
++	return 1;
++}
++
++static void
++pudding_fbcon_transmit_data(uint8_t c)
++{
++	if (c == '\r') {
++		pudding_fbcon_col = 0;
++		return;
++	}
++	if (c == '\n') {
++		pudding_fbcon_newline();
++		return;
++	}
++	if (pudding_fbcon_col >= pudding_fbcon_cols) {
++		pudding_fbcon_newline();
++	}
++	const unsigned char *glyph = iso_font + (unsigned char)c * 16;
++	uint32_t x0 = pudding_fbcon_col * 8 * PUDDING_FBCON_SCALE;
++	uint32_t y0 = pudding_fbcon_row * 16 * PUDDING_FBCON_SCALE;
++	for (uint32_t gy = 0; gy < 16; gy++) {
++		for (uint32_t sy = 0; sy < PUDDING_FBCON_SCALE; sy++) {
++			volatile uint32_t *line = pudding_fbcon_base +
++			    (y0 + gy * PUDDING_FBCON_SCALE + sy) * (PUDDING_FBCON_STRIDE / 4) + x0;
++			for (uint32_t gx = 0; gx < 8; gx++) {
++				uint32_t px = (glyph[gy] & (1u << gx)) ? PUDDING_FBCON_FG : PUDDING_FBCON_BG;
++				for (uint32_t sx = 0; sx < PUDDING_FBCON_SCALE; sx++) {
++					line[gx * PUDDING_FBCON_SCALE + sx] = px;
++				}
++			}
++		}
++	}
++	pudding_fbcon_col++;
++}
++
++static unsigned int
++pudding_fbcon_receive_ready(void)
++{
++	return 0;
++}
++
++static uint8_t
++pudding_fbcon_receive_data(void)
++{
++	return 0;
++}
++
++static struct pe_serial_functions pudding_fbcon_serial_functions = {
++	.init = pudding_fbcon_init,
++	.transmit_ready = pudding_fbcon_transmit_ready,
++	.transmit_data = pudding_fbcon_transmit_data,
++	.receive_ready = pudding_fbcon_receive_ready,
++	.receive_data = pudding_fbcon_receive_data,
++	.device = SERIAL_PUDDING_FBCON,
++};
++
++static void
++pudding_fbcon_probe(void)
++{
++	pudding_fbcon_base = (volatile uint32_t *)
++	    ml_io_map_wcomb((vm_offset_t)PUDDING_FBCON_BASE, (vm_size_t)PUDDING_FBCON_SIZE);
++	if (pudding_fbcon_base != NULL) {
++		register_serial_functions(&pudding_fbcon_serial_functions);
++	}
++}
++
+ #if HIBERNATION
+ /**
+  * Transitions the serial driver into a mode that can be run in the hibernation
+@@ -799,6 +933,13 @@
+ 
+ 	struct pe_serial_functions *fns = gPESF;
+ 
++	/*
++	 * pudding has no usable UART: draw kprintf output on the panel
++	 * framebuffer instead. Registered before the UART probes so it is the
++	 * only console when none of them match.
++	 */
++	pudding_fbcon_probe();
++
+ 	/**
+ 	 * Even if the serial devices have already been initialized on cold boot,
+ 	 * when coming out of a sleep/wake, they'll need to be re-initialized. Since
+diff --git a/pexpert/pexpert/arm/protos.h b/pexpert/pexpert/arm/protos.h
+--- a/pexpert/pexpert/arm/protos.h
++++ b/pexpert/pexpert/arm/protos.h
+@@ -47,7 +47,8 @@
+ 	SERIAL_DOCKCHANNEL=0x2,
+ 	SERIAL_PI3_UART=0x4,
+ 	SERIAL_VMAPPLE_UART=0x8,
+-	SERIAL_DCC_UART=0x10
++	SERIAL_DCC_UART=0x10,
++	SERIAL_PUDDING_FBCON=0x20
+ } serial_device_t;
+ 
+ kern_return_t serial_irq_enable(serial_device_t device);

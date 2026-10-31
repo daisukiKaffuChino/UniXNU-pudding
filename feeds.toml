@@ -1,0 +1,6 @@
+[[source]]
+name = "sm8850"
+kind = "soc"
+git = "https://github.com/UniXNU/UniXNU-sm8850-common"
+# Replace with the reviewed 40-character commit once the SoC repo is published.
+commit = "REQUIRED_SOC_COMMIT"

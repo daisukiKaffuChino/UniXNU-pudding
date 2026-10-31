@@ -1,0 +1,15 @@
+# pudding (Xiaomi 17) proprietary firmware inputs.
+# Format: path|sha256 (extract and hash before enabling; '-' prefix = optional)
+#
+# GPU stage (from MIUI vendor image, paths per pandora data-a-live):
+# vendor/firmware_mnt/image/gen80200_gmu.bin|<sha256>
+# vendor/firmware_mnt/image/gen80200_sqe.fw|<sha256>
+# vendor/firmware_mnt/image/gen80200_aqe.fw|<sha256>
+# odm/firmware/gen80200_zap.mbn|<sha256>
+#
+# Touch stage (FocalTech primary; firmware loaded by IC vendor driver):
+# vendor/firmware/focaltech_p11u_fw.bin|<sha256>   (extract from /vendor/firmware on device)
+#
+# Alternates (production multi-sourcing; enable only if touch probe matches):
+# - recovery/root/odm/firmware/synaptics_spi_pudding.img   (Synaptics S3910P)
+# - recovery/root/odm/firmware/novatek_nt38773_pudding_fw_tm.bin (Novatek NT38773)
