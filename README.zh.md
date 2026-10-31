@@ -3,9 +3,8 @@
 [English](README.md) | 简体中文
 
 小米 17（代号 `pudding`，p11u 系列）的设备支持，SoC 为高通 SM8850（第五代骁龙 8
-至尊版）。设备配置选择
-[UniXNU-sm8850-common](https://github.com/UniXNU/UniXNU-sm8850-common) 和
-[UniXNU](https://github.com/UniXNU/UniXNU) 中的 `ipados-17.7.11-21H461` OS profile。
+至尊版）。设备配置使用 [UniXNU](https://github.com/UniXNU/UniXNU)
+中的 `ipados-17.7.11-21H461` OS profile。
 
 > **状态：研究与 bring-up 阶段。** 板级参数来自一台运行 Android 17
 > （OS4.0.0.32.XPCCNXM）的零售小米 17，但尚未完成端到端验证。本仓库记录的是
@@ -57,8 +56,8 @@
   非活动 boot 槽，由 `PuddingUfsDxe` 读回。
 - 固件：需要 pudding 的 UEFI fork，位于 `Platforms/Xiaomi/puddingPkg`
   （尚未发布）。
-- `feeds.toml` 仍为 `REQUIRED_SOC_COMMIT`，且 `UniXNU-sm8850-common` 尚未发布，
-  因此在两者完成前 `./unixnu fetch` 无法解析 SoC 源。
+- `feeds.toml` 仍为 `REQUIRED_SOC_COMMIT`，因此 `./unixnu fetch` 尚无法解析
+  SoC 源。
 - `porting.toml` 中所有子系统均为 `planned`；仅 configuration、display、
   input、GPU 带有 findings。
 

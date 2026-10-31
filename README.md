@@ -3,8 +3,7 @@
 English | [简体中文](README.zh.md)
 
 Device support for Xiaomi 17, codename `pudding` (p11u family), with Qualcomm
-SM8850 (Snapdragon 8 Elite Gen 5). The device profile selects
-[UniXNU-sm8850-common](https://github.com/UniXNU/UniXNU-sm8850-common) and the
+SM8850 (Snapdragon 8 Elite Gen 5). The device profile selects the
 `ipados-17.7.11-21H461` OS profile in [UniXNU](https://github.com/UniXNU/UniXNU).
 
 > **Status: research and bring-up.** Board inputs were collected from a live
@@ -58,9 +57,8 @@ The layout follows [UniXNU-sheng](https://github.com/UniXNU/UniXNU-sheng) and
   volume is written to the inactive boot slot and read back by `PuddingUfsDxe`.
 - Firmware: expects a pudding UEFI fork at `Platforms/Xiaomi/puddingPkg`
   (not published yet).
-- `feeds.toml` still carries `REQUIRED_SOC_COMMIT`, and
-  `UniXNU-sm8850-common` is not published yet, so `./unixnu fetch` cannot
-  resolve the SoC source until both are done.
+- `feeds.toml` still carries `REQUIRED_SOC_COMMIT`, so `./unixnu fetch` cannot
+  resolve the SoC source yet.
 - `porting.toml` marks every subsystem `planned`; only configuration, display,
   input and GPU carry findings.
 
