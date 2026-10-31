@@ -7,9 +7,9 @@
 [UniXNU-sm8850-common](https://github.com/UniXNU/UniXNU-sm8850-common) 和
 [UniXNU](https://github.com/UniXNU/UniXNU) 中的 `ipados-17.7.11-21H461` OS profile。
 
-> **状态：研究与 bring-up 阶段。** 目前尚无任何 SM8850 设备启动过 UniXNU。板级参数
-> 来自一台运行 Android 17（OS4.0.0.32.XPCCNXM）的零售小米 17，但尚未完成端到端
-> 验证。本仓库记录的是进行中的工作，不是可用的移植。
+> **状态：研究与 bring-up 阶段。** 板级参数来自一台运行 Android 17
+> （OS4.0.0.32.XPCCNXM）的零售小米 17，但尚未完成端到端验证。本仓库记录的是
+> 进行中的工作，不是可用的移植。
 
 仓库结构参考 [UniXNU-sheng](https://github.com/UniXNU/UniXNU-sheng) 与
 [UniXNU-sm8550-common](https://github.com/UniXNU/UniXNU-sm8550-common)。

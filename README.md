@@ -7,10 +7,9 @@ SM8850 (Snapdragon 8 Elite Gen 5). The device profile selects
 [UniXNU-sm8850-common](https://github.com/UniXNU/UniXNU-sm8850-common) and the
 `ipados-17.7.11-21H461` OS profile in [UniXNU](https://github.com/UniXNU/UniXNU).
 
-> **Status: research and bring-up.** No SM8850 device has booted UniXNU yet.
-> Board inputs were collected from a live Xiaomi 17 running Android 17
-> (OS4.0.0.32.XPCCNXM) but have not been validated end to end. This repository
-> records work in progress, not a usable port.
+> **Status: research and bring-up.** Board inputs were collected from a live
+> Xiaomi 17 running Android 17 (OS4.0.0.32.XPCCNXM) but have not been validated
+> end to end. This repository records work in progress, not a usable port.
 
 The layout follows [UniXNU-sheng](https://github.com/UniXNU/UniXNU-sheng) and
 [UniXNU-sm8550-common](https://github.com/UniXNU/UniXNU-sm8550-common).
